@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Confirma tu cuenta</title>
+</head>
+<body>
+    <p>Hola {{ user.username }},</p>
+    <p>Gracias por registrarte en KnoWord. Por favor, haz clic en el siguiente enlace para confirmar tu dirección de correo electrónico:</p>
+    <p><a href="{{ confirmation_link }}">Confirmar mi cuenta</a></p>
+    <p>Si no puedes hacer clic en el enlace, cópialo y pégalo en tu navegador:</p>
+    <p>{{ confirmation_link }}</p>
+    <p>Si no te registraste en KnoWord, puedes ignorar este correo.</p>
+    <p>Saludos,</p>
+    <p>El equipo de KnoWord</p>
+</body>
+</html>
