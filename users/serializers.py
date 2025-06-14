@@ -71,9 +71,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         # Enviar correo
         subject = "Confirma tu cuenta de KnoWord"
-        confirmation_link = (
-            f"http://localhost:8000/api/verify-email/{user.email_verification_token}/"
-        )
+        confirmation_link = f"http://localhost:3000/confirm-account?token={user.email_verification_token}/"
 
         html_message = render_to_string(
             "emails/confirmation_email.html",
