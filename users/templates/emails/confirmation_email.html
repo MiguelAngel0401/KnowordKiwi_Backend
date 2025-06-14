@@ -2,15 +2,36 @@
 <html>
 <head>
     <title>Confirma tu cuenta</title>
+    <style>
+        body {
+            background-color:rgb(235, 235, 235);
+            border-style: solid;
+            border-color: rgb(0, 0, 0);
+        }
+        .h1 {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .link{
+            border-style: 4px solid;
+            border-color: rgb(0, 0, 0);
+            box-shadown: 3px, 3px, 3px, 3px;
+            
+        }
+        
+    </style>
 </head>
 <body>
-    <p>Hola {{ user.username }},</p>
-    <p>Gracias por registrarte en KnoWord. Por favor, haz clic en el siguiente enlace para confirmar tu dirección de correo electrónico:</p>
-    <p><a href="{{ confirmation_link }}">Confirmar mi cuenta</a></p>
-    <p>Si no puedes hacer clic en el enlace, cópialo y pégalo en tu navegador:</p>
-    <p>{{ confirmation_link }}</p>
-    <p>Si no te registraste en KnoWord, puedes ignorar este correo.</p>
-    <p>Saludos,</p>
-    <p>El equipo de KnoWord</p>
+        <p class="h1">!Hola {{ user.username }}!</p>
+        <p>Gracias por registrarte en KnoWorld. Por favor, haz clic en el siguiente enlace para confirmar su dirección de correo electrónico:</p>
+        <div class="link">
+            <p><a href="{{ confirmation_link }}">Confirmar mi cuenta</a></p>
+        </div>
+        <p>Si usted no puedes hacer clic en el enlace, cópialo y pégelo en su navegador:</p>
+        <p>{{ confirmation_link }}</p>
+        <p>Si usted no se registro en el servicio de KnoWorld, puede ignorar este correo.</p>
+        <p>Le mandamos un cordial saludo.</p>
+        <p>Atte: El equipo de desarrollo de KnoWorld</p>
 </body>
 </html>
