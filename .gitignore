@@ -1,5 +1,6 @@
 # Ignorar entornos virtuales
 env/
+venv/
 .env
 # Ignorar archivos pyc y cachés de Python
 __pycache__/
