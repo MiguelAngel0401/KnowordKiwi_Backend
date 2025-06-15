@@ -43,11 +43,31 @@ class UserLoginSerializer(serializers.Serializer):
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
+    """
+    Serializador para registrar nuevos usuarios.
+    Campos:
+        email (str): Dirección de correo electrónico del usuario. Debe ser único.
+        username (str): Nombre de usuario elegido por el usuario. Debe ser único.
+        real_name (str): Nombre real del usuario.
+        password (str): Contraseña del usuario. Solo escritura, mínimo 8 caracteres.
+        avatar_url (str, opcional): URL o referencia al avatar del usuario.
+        bio (str, opcional): Biografía del usuario.
+    Validaciones:
+        - Asegura que el correo electrónico no esté ya registrado.
+        - Asegura que el nombre de usuario no esté ya tomado.
+    Creación:
+        - Crea un nuevo usuario con los datos proporcionados.
+        - Genera un token de verificación de correo electrónico y su marca de tiempo de expiración.
+        - Envía un correo electrónico de confirmación al usuario con un enlace de verificación.
+    Excepciones:
+        serializers.ValidationError: Si el correo electrónico o el nombre de usuario ya existen.
+    """
+
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
         model = User
-        fields = ("email", "username", "real_name", "password")
+        fields = ("email", "username", "real_name", "password", "avatar_url", "bio")
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -62,7 +82,22 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
+        email = validated_data.pop("email")
+        username = validated_data.pop("username")
+        real_name = validated_data.pop("real_name")
+        password = validated_data.pop("password")
+
+        # Crear el usuario con los datos proporcionados
+        user = User.objects.create_user(
+            email=email,
+            username=username,
+            real_name=real_name,
+            password=password,
+        )
+
+        # Si se proporciona un avatar_url o una biografía, lo asignamos
+        for attr, value in validated_data.items():
+            setattr(user, attr, value)
 
         # Crear token y expiración
         user.email_verification_token = str(uuid.uuid4())
