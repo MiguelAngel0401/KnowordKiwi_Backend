@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "users",
+    "quiz_publication_associations",
 ]
 
 MIDDLEWARE = [
