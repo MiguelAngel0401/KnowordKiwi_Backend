@@ -84,3 +84,38 @@ class VerifyEmailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+
+class CheckEmailAvailabilityView(APIView):
+    """Vista para verificar la disponibilidad del correo electrónico"""
+
+    def post(self, request):
+        email = request.data.get("email")
+        if not email:
+            return Response(
+                {"error": "El campo 'email' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        exists = User.objects.filter(email=email).exists()
+        return Response(
+            {"available": not exists},
+            status=status.HTTP_200_OK,
+        )
+
+
+class CheckUsernameAvailabilityView(APIView):
+    """Vista para verificar la disponibilidad del nombre de usuario"""
+
+    def post(self, request):
+        username = request.data.get("username")
+        if not username:
+            return Response(
+                {"error": "El campo 'username' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        exists = User.objects.filter(username=username).exists()
+        return Response(
+            {"available": not exists},
+            status=status.HTTP_200_OK,
+        )
