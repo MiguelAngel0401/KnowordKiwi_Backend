@@ -14,9 +14,9 @@ class Community(models.Model):
     is_private = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_communities')
     
-    cretaed_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(blank=True, null=True) # para eliminar 
+    deleted_at = models.DateTimeField(blank=True, null=True)
     
     class Meta:
         db_table = 'communities'
@@ -24,22 +24,22 @@ class Community(models.Model):
         verbose_name_plural = 'Comunidades'
         
     def __str__(self):
-        return self
+        return self.name
 
 class CommunityMember(models.Model):
-    ROLW_CHOICES = [
-        ('meber', 'Member'),
+    ROLE_CHOICES = [
+        ('member', 'Member'),
         ('admin', 'Admin'),
         ('moderator', 'Moderator'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    Community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='memberships')
+    community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='memberships')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_memberships')
     
-    role = models.CharField(max_length=20, choices=ROLW_CHOICES, default='member')
-    joided_at = models.DateTimeField(auto_now_add=True)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
+    joined_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         db_table = 'community_members'
