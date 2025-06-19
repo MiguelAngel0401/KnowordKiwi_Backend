@@ -1,6 +1,5 @@
 import uuid
 from django.db import models
-from django.core.exceptions import ValidationError
 from users.models import User
 
 class Community(models.Model):
@@ -22,23 +21,33 @@ class Community(models.Model):
         db_table = 'communities'
         verbose_name = 'Comunidad'
         verbose_name_plural = 'Comunidades'
-        
+    
     def __str__(self):
         return self.name
 
-class CommunityMember(models.Model):
-    ROLE_CHOICES = [
-        ('member', 'Member'),
-        ('admin', 'Admin'),
-        ('moderator', 'Moderator'),
-    ]
+
+class CommunityRole(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
+    name = models.CharField(max_length=50, unique=True)
+    permissions = models.JSONField(default=dict)
+    
+    class Meta:
+        db_table = 'community_roles'
+        verbose_name = 'Rol de Comunidad'
+        verbose_name_plural = 'Roles de Comunidades'
+
+    def __str__(self):
+        return self.name
+
+
+class CommunityMember(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='memberships')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_memberships')
     
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
+    role = models.ForeignKey(CommunityRole, on_delete=models.CASCADE, related_name="members")  # ✅ Relación correcta
     joined_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -49,8 +58,6 @@ class CommunityMember(models.Model):
         ]
         verbose_name = 'Miembro de la comunidad'
         verbose_name_plural = 'Miembros de comunidades'
-        
+    
     def __str__(self):
-        return f"{self.user.username} - {self.community.name}"
-    
-    
+        return f"{self.user.username} - {self.community.name} ({self.role.name})"
