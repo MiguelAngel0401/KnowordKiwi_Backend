@@ -14,8 +14,17 @@ User = get_user_model()
 
 # Serializdor de Login
 class UserLoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(
+        error_messages={
+            "required": "El correo electrónico es obligatorio.",
+        }
+    )
+    password = serializers.CharField(
+        write_only=True,
+        error_messages={
+            "required": "La contraseña es obligatoria.",
+        },
+    )
 
     def validate(self, data):
         email = data.get("email")
@@ -28,12 +37,16 @@ class UserLoginSerializer(serializers.Serializer):
 
             if not user:
                 raise serializers.ValidationError(
-                    "Credenciales inválidas, intenta de nuevo."
+                    "Por favor verifica que el correo y la contraseña sean correctos."
                 )
             if not user.is_active:
-                raise serializers.ValidationError("Esta cuenta está desactivada.")
-        else:
-            raise serializers.ValidationError("Se requiere correo y contraseña.")
+                raise serializers.ValidationError(
+                    "Parece que no puedes iniciar sesión con esta cuenta. Por favor, contacta al soporte."
+                )
+            if not user.is_email_verified:
+                raise serializers.ValidationError(
+                    "Por favor verifica tu cuenta antes de iniciar sesión."
+                )
 
         data["user"] = user
         return data
