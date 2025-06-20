@@ -37,7 +37,7 @@ class UserLoginSerializer(serializers.Serializer):
 
             if not user:
                 raise serializers.ValidationError(
-                    "No se pudo encontrar un usuario con estas credenciales."
+                    "Por favor verifica que el correo y la contraseña sean correctos."
                 )
             if not user.is_active:
                 raise serializers.ValidationError(
