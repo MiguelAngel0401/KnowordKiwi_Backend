@@ -3,7 +3,7 @@ from .models import CommunityMember
 
 class IsCommunityMember(permissions.BasePermission): #Esto es para que solo usuarios regristados se unan
 
-    def permission(self, request, view):  
+    def has_permission(self, request, view):  
         community_id = view.kwargs.get('community_id')
         if not community_id:
             return False
