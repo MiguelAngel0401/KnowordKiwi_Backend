@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 from users.models import User
 
 
@@ -38,8 +39,15 @@ class Post(models.Model):
     title = models.CharField(max_length=200, blank=True, null=True)
     content = models.TextField(blank=True, null=True)
     
+    media_urls = ArrayField(
+    base_field=models.URLField(max_length=500),
+    default=list,
+    blank=True,
+    help_text="Lista de URLs de archivos multimedia"
+)
 
-    media_urls = models.JSONField(blank=True, null=True)
+    
+
     link_url = models.URLField(max_length=500, blank=True, null=True)
     
 
@@ -65,3 +73,5 @@ class Post(models.Model):
 
     def __str__(self):
         return f"{self.post_type.upper()} - {self.title or '[Sin título]'} por {self.author.username}"
+    
+
