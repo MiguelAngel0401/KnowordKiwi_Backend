@@ -140,4 +140,12 @@ class UserSerializer(serializers.ModelSerializer):
             "email_verification_expires_at",
             "password_reset_token",
             "password_reset_expires_at",
+            "is_superuser",
+            "is_staff",
+            "last_login",
+            "is_email_verified",
+            "created_at",
+            "updated_at",
+            "deleted_at",
+            "user_permissions",
         )

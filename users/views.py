@@ -4,7 +4,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserLoginSerializer, UserRegistrationSerializer
+from .serializers import UserLoginSerializer, UserRegistrationSerializer, UserSerializer
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
 User = get_user_model()
 
@@ -42,20 +44,45 @@ class LoginView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
+            user_data = UserSerializer(user).data
+
             refresh = RefreshToken.for_user(user)
-            return Response(
-                {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
-                },
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+
+            response = Response(
+                {"access": access_token, "user": user_data},
                 status=status.HTTP_200_OK,
             )
+
+            response.set_cookie(
+                key="refresh_token",
+                value=refresh_token,
+                httponly=True,
+                secure=False,  # Cambiar a True en producción
+                samesite="Lax",  # Cambiar a 'Strict' si es necesario
+                max_age=timezone.timedelta(days=30).total_seconds(),
+            )
+            return response
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# Vista de verificación de correo
 class VerifyEmailView(APIView):
+    """
+    Vista para verificar el correo electrónico del usuario
+    Esta vista recibe un token de verificación y actualiza el estado del usuario
+    para indicar que su correo ha sido verificado.
+    El token debe ser único y tener una fecha de expiración.
+    Metodos:
+        get: Verifica el correo electrónico del usuario utilizando un token.
+        Este token debe ser enviado como parte de la URL.
+    """
+
     def get(self, request, token):
+        """
+        Verifica el correo electrónico del usuario utilizando un token.
+        """
         try:
             user = User.objects.get(email_verification_token=token)
 
@@ -119,3 +146,29 @@ class CheckUsernameAvailabilityView(APIView):
             {"available": not exists},
             status=status.HTTP_200_OK,
         )
+
+
+class CookieTokenRefreshView(TokenRefreshView):
+    """
+    Vista para refrescar el token de acceso utilizando un
+    token de actualización almacenado en cookies.
+    Esta vista asume que el token de actualización se
+    almacena en una cookie llamada "refresh_token".
+    """
+
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get("refresh_token")
+
+        if refresh_token is None:
+            return Response(
+                {"error": "No se encontró el token de actualización en las cookies."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = self.get_serializer(data={"refresh": refresh_token})
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0]) from e
+
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
