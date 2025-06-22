@@ -11,9 +11,21 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 User = get_user_model()
 
 
-# Vista de registro
 class RegisterView(APIView):
+    """
+    Vista para registrar nuevos usuarios.
+    Esta vista recibe los datos del usuario, valida la información,
+    crea el usuario y envía un correo electrónico de verificación.
+    Metodos:
+        post: Registra un nuevo usuario.
+        Requiere los campos 'email', 'username', 'real_name', 'password',
+        'avatar_url' y 'bio' (opcionales) en el cuerpo de la solicitud.
+    """
+
     def post(self, request):
+        """
+        Registra un nuevo usuario.
+        """
         serializer = UserRegistrationSerializer(
             data=request.data, context={"request": request}
         )
@@ -28,9 +40,20 @@ class RegisterView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# Vista de login
 class LoginView(APIView):
+    """
+    Vista para iniciar sesión de usuarios.
+    Esta vista recibe los datos de inicio de sesión, valida la información,
+    y devuelve un token de acceso y un token de actualización.
+    Metodos:
+        post: Inicia sesión de un usuario.
+        Requiere los campos 'email' y 'password' en el cuerpo de la solicitud.
+    """
+
     def post(self, request):
+        """
+        Inicia sesión de un usuario.
+        """
         serializer = UserLoginSerializer(
             data=request.data, context={"request": request}
         )
@@ -61,7 +84,7 @@ class LoginView(APIView):
                 httponly=True,
                 secure=False,  # Cambiar a True en producción
                 samesite="Lax",  # Cambiar a 'Strict' si es necesario
-                max_age=timezone.timedelta(days=30).total_seconds(),
+                max_age=timezone.timedelta(days=14).total_seconds(),
             )
             return response
 
@@ -116,6 +139,9 @@ class CheckEmailAvailabilityView(APIView):
     """Vista para verificar la disponibilidad del correo electrónico"""
 
     def post(self, request):
+        """
+        Verifica si un correo electrónico ya está registrado.
+        """
         email = request.data.get("email")
         if not email:
             return Response(
@@ -134,6 +160,8 @@ class CheckUsernameAvailabilityView(APIView):
     """Vista para verificar la disponibilidad del nombre de usuario"""
 
     def post(self, request):
+        """Verifica si un nombre de usuario ya está registrado."""
+
         username = request.data.get("username")
         if not username:
             return Response(
@@ -172,3 +200,21 @@ class CookieTokenRefreshView(TokenRefreshView):
             raise InvalidToken(e.args[0]) from e
 
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+class LogoutView(APIView):
+    """
+    Vista para cerrar la sesión de un usuario.
+    Elimina la cookie de refresco para cerrar la sesión.
+    """
+
+    def post(self, request):
+        """
+        Cierra la sesión del usuario eliminando la cookie de refresco.
+        """
+        response = Response(
+            {"message": "Logout exitoso."},
+            status=status.HTTP_200_OK,
+        )
+        response.delete_cookie("refresh_token")
+        return response
