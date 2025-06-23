@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "users",
     'communities',
+    'social_follow',
+
 
 ]
 
