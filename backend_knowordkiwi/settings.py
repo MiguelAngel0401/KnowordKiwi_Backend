@@ -39,7 +39,9 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "users",
+    'communities',
     'social_follow',
+
 
 ]
 
