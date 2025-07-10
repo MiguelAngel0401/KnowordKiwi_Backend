@@ -12,7 +12,6 @@ from rest_framework import serializers
 User = get_user_model()
 
 
-# Serializdor de Login
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
@@ -39,9 +38,6 @@ class UserLoginSerializer(serializers.Serializer):
         return data
 
 
-# Serializador de Registro
-
-
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """
     Serializador para registrar nuevos usuarios.
@@ -66,10 +62,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
+        """
+        Meta clase para configurar el serializador.
+        Campos:
+            model (Model): Modelo de usuario.
+            fields (tuple): Campos incluidos en el serializador.
+        """
+
         model = User
         fields = ("email", "username", "real_name", "password", "avatar_url", "bio")
 
     def validate_email(self, value):
+        """
+        Valida que el correo electrónico no esté ya registrado.
+        """
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError(
                 "Este correo electrónico ya está registrado."
@@ -77,6 +83,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate_username(self, value):
+        """
+        Valida que el nombre de usuario no esté ya tomado.
+        """
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("Este nombre de usuario ya existe.")
         return value
@@ -128,36 +137,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             print("Error al enviar el correo:", e)
 
         return user
-    
-        # Serializador de Usuario
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            "id",
-            "email",
-            "username",
-            "real_name",
-            "avatar_url",
-            "bio",
-            "is_email_verified",
-            "date_joined",
-        ]
-        read_only_fields = ["id", "email", "username","is_email_verified", "date_joined"]
-    
-    def validate_username(self, value):
-        # Verifica que el usuario no este tomado por otro usuario que se valide el usuario registrado
-        user = self.instance
-        if user and User.objects.filter(username=value).exclude(id=user.id).exists():
-            raise serializers.ValidationError("Este nombre de usuario ya está en uso.")
-        elif not user and User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Este nombre de usuario ya está en uso.")
-        return value
 
 
-# Serializador de Usuario
 class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializador para representar los datos de un usuario.
+    Se devuelve una instancia del modelo User al iniciar sesion.
+    """
+
     class Meta:
+        """
+        Meta clase para configurar el serializador.
+        Se excluyen varios campos innecesarios para la representación.
+        """
+
         model = User
         exclude = (
             "password",

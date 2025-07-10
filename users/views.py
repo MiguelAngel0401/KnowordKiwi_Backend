@@ -4,14 +4,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserLoginSerializer, UserRegistrationSerializer, UserSerializer
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from .serializers import UserLoginSerializer, UserRegistrationSerializer, UserSerializer
 
-from rest_framework.generics import RetrieveUpdateAPIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
 
 User = get_user_model()
 
@@ -107,7 +103,7 @@ class VerifyEmailView(APIView):
         Este token debe ser enviado como parte de la URL.
     """
 
-    def get(self, request, token):
+    def get(self, request, token):  # pylint: disable=unused-argument
         """
         Verifica el correo electrónico del usuario utilizando un token.
         """
@@ -213,7 +209,7 @@ class LogoutView(APIView):
     Elimina la cookie de refresco para cerrar la sesión.
     """
 
-    def post(self, request):
+    def post(self, request):  # pylint: disable=unused-argument
         """
         Cierra la sesión del usuario eliminando la cookie de refresco.
         """
@@ -223,26 +219,6 @@ class LogoutView(APIView):
         )
         response.delete_cookie("refresh_token")
         return response
-    
 
-class UserProfileView(RetrieveUpdateAPIView):
-    serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        return self.request.user
-    
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'user': serializer.data
-            }, status=status.HTTP_200_OK)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#drf django_spectacular
+# drf django_spectacular
