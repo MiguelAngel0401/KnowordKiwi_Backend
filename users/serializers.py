@@ -113,30 +113,32 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.email_verification_expires_at = timezone.now() + timedelta(hours=24)
         user.save()
 
-        # Enviar correo
-        subject = "Confirma tu cuenta de KnoWord"
-        confirmation_link = f"http://localhost:3000/confirm-account?token={user.email_verification_token}/"
-
-        html_message = render_to_string(
-            "emails/confirmation_email.html",
-            {"user": user, "confirmation_link": confirmation_link},
-        )
-        plain_message = strip_tags(html_message)
-
-        try:
-            send_mail(
-                subject,
-                plain_message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            print("Correo enviado a", user.email)
-        except Exception as e:
-            print("Error al enviar el correo:", e)
+        _send_verification_email(user)
 
         return user
+
+
+def _send_verification_email(user):
+    """Función auxiliar para enviar el correo de verificación."""
+    subject = "Confirma tu cuenta de KnoWord"
+    confirmation_link = (
+        f"http://localhost:3000/confirm-account?token={user.email_verification_token}"
+    )
+
+    html_message = render_to_string(
+        "emails/confirmation_email.html",
+        {"user": user, "confirmation_link": confirmation_link},
+    )
+    plain_message = strip_tags(html_message)
+
+    send_mail(
+        subject,
+        plain_message,
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        html_message=html_message,
+        fail_silently=False,
+    )
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -167,3 +169,65 @@ class UserSerializer(serializers.ModelSerializer):
             "deleted_at",
             "user_permissions",
         )
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializador para actualizar los datos del usuario.
+    Permite editar: username, real_name, bio, email.
+    """
+
+    email = serializers.EmailField(required=False)
+
+    class Meta:
+        """
+        Meta clase para configurar el serializador.
+        Campos:
+            model (Model): Modelo de usuario.
+            fields (tuple): Campos incluidos en el serializador.
+        """
+
+        model = User
+        fields = ("username", "real_name", "bio", "email")
+
+    def validate_username(self, value):
+        """Valida que el nuevo username no esté en uso por otro usuario."""
+        # self.instance es el objeto de usuario que se está actualizando
+        if User.objects.filter(username=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError("Este nombre de usuario ya existe.")
+        return value
+
+    def validate_email(self, value):
+        """Valida que el nuevo email no esté en uso por otro usuario."""
+        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError(
+                "Este correo electrónico ya está registrado."
+            )
+        return value
+
+    def update(self, instance, validated_data):
+        """
+        Actualiza la instancia del usuario. Si el email cambia,
+        se inicia el proceso de re-verificación.
+        """
+        new_email = validated_data.get("email")
+
+        # Lógica de re-verificación de email
+        if new_email and new_email.lower() != instance.email.lower():
+            instance.is_email_verified = False
+            instance.email_verification_token = str(uuid.uuid4())
+            instance.email_verification_expires_at = timezone.now() + timedelta(
+                hours=24
+            )
+            # Guardamos el nuevo email temporalmente para enviar el correo
+            instance.email = new_email
+            try:
+                _send_verification_email(instance)
+            except Exception as e:
+                # Si el correo falla, no actualizamos el email para evitar un estado inconsistente
+                raise serializers.ValidationError(
+                    f"No se pudo enviar el correo de verificación al nuevo email. Error: {e}"
+                )
+
+        # Llama al método update original para guardar los demás campos
+        return super().update(instance, validated_data)

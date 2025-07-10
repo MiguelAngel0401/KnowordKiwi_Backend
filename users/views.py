@@ -1,12 +1,20 @@
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, generics
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
-from .serializers import UserLoginSerializer, UserRegistrationSerializer, UserSerializer
+from .authentication import CookieJWTAuthentication
+from .serializers import (
+    UserLoginSerializer,
+    UserRegistrationSerializer,
+    UserSerializer,
+    UserUpdateSerializer,
+)
 
 
 User = get_user_model()
@@ -71,21 +79,30 @@ class LoginView(APIView):
             user_data = UserSerializer(user).data
 
             refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
 
             response = Response(
-                {"access": access_token, "user": user_data},
+                {"user": user_data},
                 status=status.HTTP_200_OK,
             )
 
+            # Configurar la cookie del token de acceso
+            response.set_cookie(
+                key="access_token",
+                value=str(refresh.access_token),
+                httponly=True,
+                secure=not settings.DEBUG,  # True en producción
+                samesite="Lax",
+                max_age=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds(),
+            )
+
+            # Configurar la cookie del token de refresco
             response.set_cookie(
                 key="refresh_token",
-                value=refresh_token,
+                value=str(refresh),
                 httponly=True,
-                secure=False,  # Cambiar a True en producción
+                secure=not settings.DEBUG,  # True en producción
                 samesite="Lax",  # Cambiar a 'Strict' si es necesario
-                max_age=timezone.timedelta(days=14).total_seconds(),
+                max_age=settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds(),
             )
             return response
 
@@ -200,7 +217,22 @@ class CookieTokenRefreshView(TokenRefreshView):
         except TokenError as e:
             raise InvalidToken(e.args[0]) from e
 
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        response = Response(
+            {"message": "Token de acceso refrescado correctamente."},
+            status=status.HTTP_200_OK,
+        )
+
+        # Configurar la nueva cookie del token de acceso
+        response.set_cookie(
+            key="access_token",
+            value=serializer.validated_data["access"],
+            httponly=True,
+            secure=not settings.DEBUG,  # True en producción
+            samesite="Lax",
+            max_age=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds(),
+        )
+
+        return response
 
 
 class LogoutView(APIView):
@@ -218,7 +250,27 @@ class LogoutView(APIView):
             status=status.HTTP_200_OK,
         )
         response.delete_cookie("refresh_token")
+        response.delete_cookie("access_token")
         return response
+
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    """
+    Vista para que los usuarios vean y actualicen su perfil.
+    Permite peticiones GET para obtener los datos y PATCH para actualizarlos.
+    """
+
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    queryset = User.objects.all()
+    serializer_class = UserUpdateSerializer
+
+    def get_object(self):
+        """
+        Sobrescribimos este método para asegurar que el usuario
+        solo pueda acceder a su propio perfil.
+        """
+        return self.request.user
 
 
 # drf django_spectacular

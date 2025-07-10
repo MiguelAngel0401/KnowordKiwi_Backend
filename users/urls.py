@@ -7,6 +7,7 @@ from .views import (
     VerifyEmailView,
     CheckEmailAvailabilityView,
     CheckUsernameAvailabilityView,
+    UserProfileView,
 )
 
 urlpatterns = [
@@ -25,4 +26,5 @@ urlpatterns = [
     path("verify-email/<str:token>/", VerifyEmailView.as_view(), name="verify-email"),
     path("token/refresh/", CookieTokenRefreshView.as_view(), name="token-refresh"),
     path("logout/", LogoutView.as_view(), name="logout"),
+    path("me/", UserProfileView.as_view(), name="user-profile"),
 ]
