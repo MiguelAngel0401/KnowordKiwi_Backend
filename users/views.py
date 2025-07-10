@@ -4,7 +4,7 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -154,11 +154,18 @@ class VerifyEmailView(APIView):
 
 
 class CheckEmailAvailabilityView(APIView):
-    """Vista para verificar la disponibilidad del correo electrónico"""
+    """
+    Vista para verificar la disponibilidad del correo electrónico.
+    Si el usuario está autenticado, excluye su propio correo de la verificación,
+    permitiendo su reutilización en la página de edición de perfil.
+    """
+
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         """
-        Verifica si un correo electrónico ya está registrado.
+        Verifica si un correo electrónico ya está registrado por OTRO usuario.
         """
         email = request.data.get("email")
         if not email:
@@ -167,7 +174,14 @@ class CheckEmailAvailabilityView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        exists = User.objects.filter(email=email).exists()
+        # Usamos iexact para una comparación insensible a mayúsculas/minúsculas
+        queryset = User.objects.filter(email__iexact=email)
+
+        # Si el usuario está autenticado, excluimos su propio registro de la búsqueda
+        if request.user and request.user.is_authenticated:
+            queryset = queryset.exclude(pk=request.user.pk)
+
+        exists = queryset.exists()
         return Response(
             {"available": not exists},
             status=status.HTTP_200_OK,
@@ -175,10 +189,17 @@ class CheckEmailAvailabilityView(APIView):
 
 
 class CheckUsernameAvailabilityView(APIView):
-    """Vista para verificar la disponibilidad del nombre de usuario"""
+    """
+    Vista para verificar la disponibilidad del nombre de usuario.
+    Si el usuario está autenticado, excluye su propio username de la verificación,
+    permitiendo su reutilización en la página de edición de perfil.
+    """
+
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        """Verifica si un nombre de usuario ya está registrado."""
+        """Verifica si un nombre de usuario ya está registrado por OTRO usuario."""
 
         username = request.data.get("username")
         if not username:
@@ -187,7 +208,14 @@ class CheckUsernameAvailabilityView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        exists = User.objects.filter(username=username).exists()
+        # Usamos iexact para una comparación insensible a mayúsculas/minúsculas
+        queryset = User.objects.filter(username__iexact=username)
+
+        # Si el usuario está autenticado, excluimos su propio registro de la búsqueda
+        if request.user and request.user.is_authenticated:
+            queryset = queryset.exclude(pk=request.user.pk)
+
+        exists = queryset.exists()
         return Response(
             {"available": not exists},
             status=status.HTTP_200_OK,
