@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
 User = get_user_model()
 
@@ -59,7 +60,32 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         serializers.ValidationError: Si el correo electrónico o el nombre de usuario ya existen.
     """
 
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        error_messages={
+            "min_length": "La contraseña debe tener un mínimo de 8 caracteres."
+        },
+    )
+
+    # Definimos los campos explícitamente para controlar el mensaje de error 'unique'.
+    email = serializers.EmailField(
+        required=True,
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message="Este correo electrónico ya está registrado.",
+            )
+        ],
+    )
+    username = serializers.CharField(
+        required=True,
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(), message="Este nombre de usuario ya existe."
+            )
+        ],
+    )
 
     class Meta:
         """
@@ -71,24 +97,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         model = User
         fields = ("email", "username", "real_name", "password", "avatar_url", "bio")
-
-    def validate_email(self, value):
-        """
-        Valida que el correo electrónico no esté ya registrado.
-        """
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError(
-                "Este correo electrónico ya está registrado."
-            )
-        return value
-
-    def validate_username(self, value):
-        """
-        Valida que el nombre de usuario no esté ya tomado.
-        """
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Este nombre de usuario ya existe.")
-        return value
+        # extra_kwargs ya no es necesario para 'unique' porque los campos se definen arriba.
 
     def create(self, validated_data):
         email = validated_data.pop("email")
