@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
+from django.forms import ValidationError
 from django.utils import timezone
 from django.conf import settings
+from django.core.validators import validate_email
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
@@ -173,6 +175,14 @@ class CheckEmailAvailabilityView(APIView):
                 {"error": "El campo 'email' es obligatorio."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # validar que el correo electronico tenga el formato correcto
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response(
+                {"error": "El correo electronico no tiene el formato correcto."},
+                status=status.HTTP_200_OK,
+            )
 
         # Usamos iexact para una comparación insensible a mayúsculas/minúsculas
         queryset = User.objects.filter(email__iexact=email)
@@ -206,6 +216,13 @@ class CheckUsernameAvailabilityView(APIView):
             return Response(
                 {"error": "El campo 'username' es obligatorio."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Verificar que el username tiene al menos tres caracteres
+        if len(username) < 3:
+            return Response(
+                {"error": "Tu nombre de usuario debe tener al menos 3 caracteres."},
+                status=status.HTTP_200_OK,
             )
 
         # Usamos iexact para una comparación insensible a mayúsculas/minúsculas
