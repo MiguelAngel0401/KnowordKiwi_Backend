@@ -5,14 +5,14 @@ from django.shortcuts import get_object_or_404
 
 from users.models import User
 from .models import Community, CommunityMember, CommunityRole
-#from .serializers import (
-    #CommunitySerializer,
-    #CommunityMemberSerializer,
-#)
+from .serializers import (
+    CommunitySerializer,
+    CommunityMemberSerializer,
+)
 class CommunityViewSet(viewsets.ModelViewSet):
     """""""CRUD de comunidades"""""""
     queryset = Community.objects.all()
-    #serializer_class = CommunitySerializer
+    serializer_class = CommunitySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
@@ -20,7 +20,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
         
         
 class CommunityMemberViewSet(viewsets.ModelViewSet):
-    #serializer_class = CommunityMemberSerializer
+    serializer_class = CommunityMemberSerializer
     permission_classes = [permissions.IsAuthenticated] #miembros de la comunidad
 
     def get_queryset(self):
@@ -67,3 +67,23 @@ class CommunityFeedView(APIView):
         return Response({
             "message": f"Feed de la comunidad: {community.name}"
         }) #Feeds de las comunidades
+        
+class CommunityByCategoryView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, category):
+        communities = Community.objects.filter(
+            category__iexact=category,
+            deleted_at__isnull=True  # Aseguramos que no se muestren comunidades eliminadas
+            
+            )
+        serializer = CommunitySerializer(communities, many=True)
+        return Response(serializer.data) #comunidades por categoria)
+    
+class CommunityDetailView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, community_id):
+        community = get_object_or_404(Community, id=community_id)
+        serializer = CommunitySerializer(community)
+        return Response(serializer.data)

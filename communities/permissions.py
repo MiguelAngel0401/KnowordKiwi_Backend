@@ -14,7 +14,7 @@ class IsCommunityMember(permissions.BasePermission): #Esto es para que solo usua
 
 class IsCommunityModerator(permissions.BasePermission): #Esto es solo para los moderadores de las supercomunidades
 
-    def permission(self, request, view):
+    def has_permission(self, request, view):
         community_id = view.kwargs.get('community_id')
         if not community_id:
             return False
@@ -27,4 +27,4 @@ class IsCommunityModerator(permissions.BasePermission): #Esto es solo para los m
         if not member:
             return False
 
-        return member.role.permissions.get('can_moderate', True)
+        return member.role.permissions.get('can_moderate', False)

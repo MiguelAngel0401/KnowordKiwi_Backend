@@ -17,6 +17,9 @@ class Community(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(blank=True, null=True)
     
+    category = models.CharField(max_length=50, blank=True, null=True)
+    tags = models.JSONField(default=list, blank=True)
+    
     class Meta:
         db_table = 'communities'
         verbose_name = 'Comunidad'
