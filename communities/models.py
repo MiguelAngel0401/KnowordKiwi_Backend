@@ -50,7 +50,7 @@ class CommunityMember(models.Model):
     community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='memberships')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_memberships')
     
-    role = models.ForeignKey(CommunityRole, on_delete=models.CASCADE, related_name="members")  # ✅ Relación correcta
+    role = models.ForeignKey(CommunityRole, on_delete=models.CASCADE, related_name="members")
     joined_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
