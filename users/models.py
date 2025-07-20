@@ -39,7 +39,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     password_reset_expires_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.BooleanField(blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -50,8 +50,3 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return str(self.email) if self.email is not None else ""
-
-    objects = CustomUserManager()
-
-    USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["username", "real_name"]

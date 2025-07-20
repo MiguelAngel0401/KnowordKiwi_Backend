@@ -1,34 +1,42 @@
 from django.contrib.auth import get_user_model
+from django.forms import ValidationError
 from django.utils import timezone
-from rest_framework.views import APIView
+from django.conf import settings
 from django.core.validators import validate_email
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.core.exceptions import ValidationError as DjangoValidationError
-from rest_framework import status
+from rest_framework import status, generics
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserLoginSerializer, UserRegistrationSerializer
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from .authentication import CookieJWTAuthentication
+from .serializers import (
+    UserLoginSerializer,
+    UserRegistrationSerializer,
+    UserSerializer,
+    UserUpdateSerializer,
+)
+
 
 User = get_user_model()
 
 
 class RegisterView(APIView):
     """
-    Vista de API para el registro de nuevos usuarios.
-
-    Maneja solicitudes POST para registrar nuevos usuarios. Valida los datos proporcionados
-    usando el serializador `UserRegistrationSerializer`. Si los datos son válidos,
-    crea un nuevo usuario y devuelve un mensaje de éxito indicando al usuario que
-    verifique su correo electrónico para completar el proceso de registro.
-    Si los datos no son válidos, devuelve un error con los detalles de la validación
-    y un estado HTTP 400 (Bad Request).
-
+    Vista para registrar nuevos usuarios.
+    Esta vista recibe los datos del usuario, valida la información,
+    crea el usuario y envía un correo electrónico de verificación.
     Metodos:
-        post(request): Maneja el registro de usuario a través de una solicitud POST.
+        post: Registra un nuevo usuario.
+        Requiere los campos 'email', 'username', 'real_name', 'password',
+        'avatar_url' y 'bio' (opcionales) en el cuerpo de la solicitud.
     """
 
     def post(self, request):
-        """Maneja el registro de usuario a través de una solicitud POST."""
-
+        """
+        Registra un nuevo usuario.
+        """
         serializer = UserRegistrationSerializer(
             data=request.data, context={"request": request}
         )
@@ -36,8 +44,7 @@ class RegisterView(APIView):
             serializer.save()
             return Response(
                 {
-                    "message": "Usuario registrado correctamente. "
-                    "Revisa tu correo para verificar tu cuenta."
+                    "message": "Usuario registrado correctamente. Revisa tu correo para verificar tu cuenta."
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -46,56 +53,79 @@ class RegisterView(APIView):
 
 class LoginView(APIView):
     """
-    Vista de API para el inicio de sesión de usuarios.
-
-    Maneja solicitudes POST para iniciar sesión de usuarios. Valida los datos proporcionados
-    usando el serializador `UserLoginSerializer`. Si los datos son válidos,
-    devuelve un token de acceso y un token de actualización para el usuario.
-    Si los datos no son válidos, devuelve un error con los detalles de
-    la validación y un estado HTTP 400 (Bad Request).
+    Vista para iniciar sesión de usuarios.
+    Esta vista recibe los datos de inicio de sesión, valida la información,
+    y devuelve un token de acceso y un token de actualización.
     Metodos:
-        post(request): Maneja el inicio de sesión de usuario a través de una solicitud POST.
+        post: Inicia sesión de un usuario.
+        Requiere los campos 'email' y 'password' en el cuerpo de la solicitud.
     """
 
     def post(self, request):
-        """Maneja el inicio de sesión de usuario a través de una solicitud POST."""
+        """
+        Inicia sesión de un usuario.
+        """
         serializer = UserLoginSerializer(
             data=request.data, context={"request": request}
         )
         if serializer.is_valid():
             user = serializer.validated_data["user"]
 
+            # Opcional: evitar login si no ha verificado su correo
+            if not user.is_email_verified:
+                return Response(
+                    {"error": "Por favor verifica tu correo antes de iniciar sesión."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            user_data = UserSerializer(user).data
+
             refresh = RefreshToken.for_user(user)
-            return Response(
-                {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
-                },
+
+            response = Response(
+                {"user": user_data},
                 status=status.HTTP_200_OK,
             )
+
+            # Configurar la cookie del token de acceso
+            response.set_cookie(
+                key="access_token",
+                value=str(refresh.access_token),
+                httponly=True,
+                secure=not settings.DEBUG,  # True en producción
+                samesite="Lax",
+                max_age=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds(),
+            )
+
+            # Configurar la cookie del token de refresco
+            response.set_cookie(
+                key="refresh_token",
+                value=str(refresh),
+                httponly=True,
+                secure=not settings.DEBUG,  # True en producción
+                samesite="Lax",  # Cambiar a 'Strict' si es necesario
+                max_age=settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds(),
+            )
+            return response
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyEmailView(APIView):
     """
     Vista para verificar el correo electrónico del usuario
-
-    Maneja solicitudes GET para verificar el correo electrónico del usuario.
-    Busca al usuario por el token de verificación proporcionado en la URL.
-    Si el usuario no existe o el token de verificación ha expirado,
-    devuelve un error con un mensaje de error y un estado HTTP 400 (Bad Request).
-    Si el usuario es encontrado y el token de verificación es válido,
-    actualiza la propiedad `is_email_verified` del usuario y lo guarda.
-    Devuelve un mensaje de éxito indicando que el correo fue verificado correctamente.
-
+    Esta vista recibe un token de verificación y actualiza el estado del usuario
+    para indicar que su correo ha sido verificado.
+    El token debe ser único y tener una fecha de expiración.
     Metodos:
-        get(request, token): Maneja la verificación de correo electrónico
-        a través de una solicitud GET.
+        get: Verifica el correo electrónico del usuario utilizando un token.
+        Este token debe ser enviado como parte de la URL.
     """
 
-    def get(self, request, token):
-        """Maneja la verificación de correo electrónico a través de una solicitud GET."""
-
+    def get(self, request, token):  # pylint: disable=unused-argument
+        """
+        Verifica el correo electrónico del usuario utilizando un token.
+        """
         try:
             user = User.objects.get(email_verification_token=token)
 
@@ -127,66 +157,59 @@ class VerifyEmailView(APIView):
 
 class CheckEmailAvailabilityView(APIView):
     """
-    Vista para verificar si un correo electrónico es válido y está disponible
-    Maneja solicitudes POST para verificar la disponibilidad de un correo electrónico.
-    Si el correo electrónico es válido y no está registrado, devuelve un mensaje de
-    disponibilidad con un estado HTTP 200 (OK) (Valido para que funcione la validacion frontend).
-    Si el correo electrónico no es válido, devuelve un error con un mensaje de error
-    y un estado HTTP 200 (OK) (Valido para que funcione la validacion frontend).
-    Si el correo electrónico ya esta registrado, devuelve un mensaje de disponibilidad
-    con un estado HTTP 200 (OK).
-    Metodos:
-        post(request): Maneja la verificación de disponibilidad del correo electrónico
+    Vista para verificar la disponibilidad del correo electrónico.
+    Si el usuario está autenticado, excluye su propio correo de la verificación,
+    permitiendo su reutilización en la página de edición de perfil.
     """
 
-    def post(self, request):
-        """Maneja la verificación de disponibilidad del correo electrónico a
-        través de una solicitud POST."""
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [AllowAny]
 
+    def post(self, request):
+        """
+        Verifica si un correo electrónico ya está registrado por OTRO usuario.
+        """
         email = request.data.get("email")
         if not email:
             return Response(
                 {"error": "El campo 'email' es obligatorio."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
+        # validar que el correo electronico tenga el formato correcto
         try:
             validate_email(email)
-        except DjangoValidationError:
+        except ValidationError:
             return Response(
-                {"error": "El correo electrónico no es válido."},
+                {"error": "El correo electronico no tiene el formato correcto."},
                 status=status.HTTP_200_OK,
             )
-        if User.objects.filter(email=email).exists():
-            return Response(
-                {
-                    "available": False,
-                    "message": "Este correo electrónico ya está registrado.",
-                },
-                status=status.HTTP_200_OK,
-            )
-        else:
-            return Response(
-                {"available": True, "message": "Correo electrónico disponible."},
-                status=status.HTTP_200_OK,
-            )
+
+        # Usamos iexact para una comparación insensible a mayúsculas/minúsculas
+        queryset = User.objects.filter(email__iexact=email)
+
+        # Si el usuario está autenticado, excluimos su propio registro de la búsqueda
+        if request.user and request.user.is_authenticated:
+            queryset = queryset.exclude(pk=request.user.pk)
+
+        exists = queryset.exists()
+        return Response(
+            {"available": not exists},
+            status=status.HTTP_200_OK,
+        )
 
 
 class CheckUsernameAvailabilityView(APIView):
     """
-    Vista para verificar la disponibilidad del nombre de usuario
-    Maneja solicitudes POST para verificar la disponibilidad del nombre de usuario.
-    Si el nombre de usuario ya está en uso, devuelve un mensaje de no disponibilidad
-    con un estado HTTP 200 (OK).
-    Si el nombre de usuario no esta registrado, devuelve un mensaje de disponibilidad
-    con un estado HTTP 200 (OK).
-    Metodos:
-        post(request): Maneja la verificación de disponibilidad del nombre de usuario
+    Vista para verificar la disponibilidad del nombre de usuario.
+    Si el usuario está autenticado, excluye su propio username de la verificación,
+    permitiendo su reutilización en la página de edición de perfil.
     """
 
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [AllowAny]
+
     def post(self, request):
-        """Maneja la verificación de disponibilidad del nombre de usuario a
-        través de una solicitud POST."""
+        """Verifica si un nombre de usuario ya está registrado por OTRO usuario."""
 
         username = request.data.get("username")
         if not username:
@@ -195,19 +218,104 @@ class CheckUsernameAvailabilityView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        exists = User.objects.filter(username=username).exists()
-        if exists:
+        # Verificar que el username tiene al menos tres caracteres
+        if len(username) < 3:
             return Response(
-                {
-                    "available": False,
-                    "message": "El nombre de usuario ya está en uso.",
-                },
+                {"error": "Tu nombre de usuario debe tener al menos 3 caracteres."},
                 status=status.HTTP_200_OK,
             )
+
+        # Usamos iexact para una comparación insensible a mayúsculas/minúsculas
+        queryset = User.objects.filter(username__iexact=username)
+
+        # Si el usuario está autenticado, excluimos su propio registro de la búsqueda
+        if request.user and request.user.is_authenticated:
+            queryset = queryset.exclude(pk=request.user.pk)
+
+        exists = queryset.exists()
         return Response(
-            {
-                "available": True,
-                "message": "El nombre de usuario está disponible.",
-            },
+            {"available": not exists},
             status=status.HTTP_200_OK,
         )
+
+
+class CookieTokenRefreshView(TokenRefreshView):
+    """
+    Vista para refrescar el token de acceso utilizando un
+    token de actualización almacenado en cookies.
+    Esta vista asume que el token de actualización se
+    almacena en una cookie llamada "refresh_token".
+    """
+
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get("refresh_token")
+
+        if refresh_token is None:
+            return Response(
+                {"error": "No se encontró el token de actualización en las cookies."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = self.get_serializer(data={"refresh": refresh_token})
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0]) from e
+
+        response = Response(
+            {"message": "Token de acceso refrescado correctamente."},
+            status=status.HTTP_200_OK,
+        )
+
+        # Configurar la nueva cookie del token de acceso
+        response.set_cookie(
+            key="access_token",
+            value=serializer.validated_data["access"],
+            httponly=True,
+            secure=not settings.DEBUG,  # True en producción
+            samesite="Lax",
+            max_age=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds(),
+        )
+
+        return response
+
+
+class LogoutView(APIView):
+    """
+    Vista para cerrar la sesión de un usuario.
+    Elimina la cookie de refresco para cerrar la sesión.
+    """
+
+    def post(self, request):  # pylint: disable=unused-argument
+        """
+        Cierra la sesión del usuario eliminando la cookie de refresco.
+        """
+        response = Response(
+            {"message": "Logout exitoso."},
+            status=status.HTTP_200_OK,
+        )
+        response.delete_cookie("refresh_token")
+        response.delete_cookie("access_token")
+        return response
+
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    """
+    Vista para que los usuarios vean y actualicen su perfil.
+    Permite peticiones GET para obtener los datos y PATCH para actualizarlos.
+    """
+
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    queryset = User.objects.all()
+    serializer_class = UserUpdateSerializer
+
+    def get_object(self):
+        """
+        Sobrescribimos este método para asegurar que el usuario
+        solo pueda acceder a su propio perfil.
+        """
+        return self.request.user
+
+
+# drf django_spectacular
