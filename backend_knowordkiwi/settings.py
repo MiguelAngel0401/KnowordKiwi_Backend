@@ -24,7 +24,8 @@ ALLOWED_HOSTS = []
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-    )
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 
@@ -47,10 +48,9 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "users",
-    'communities',
-    'social_follow',
-
-
+    "communities",
+    "social_follow",
+    "drf_spectacular",
 ]
 
 MIDDLEWARE = [
@@ -81,6 +81,13 @@ CORS_ALLOW_HEADERS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Knoword API",
+    "DESCRIPTION": "Documentacion de la API de Knoword Kiwi",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
 
 ROOT_URLCONF = "backend_knowordkiwi.urls"
 
