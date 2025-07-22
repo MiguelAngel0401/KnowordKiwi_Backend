@@ -23,6 +23,7 @@ class Community(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(blank=True, null=True)
+    tags = models.ManyToManyField("Tag", related_name="communities", blank=True)
 
     class Meta:
         """
@@ -94,3 +95,25 @@ class CommunityMember(models.Model):
 
     def __str__(self):
         return f"{self.user.name} - {self.community.name} ({self.role.name})"
+
+
+class Tag(models.Model):
+    """
+    Representa una etiqueta (categoría temática) que puede asociarse a una o varias comunidades.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=50, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        """
+        Clase Meta para configurar el modelo Tag.
+        """
+
+        db_table = "tags"
+        verbose_name = "Etiqueta"
+        verbose_name_plural = "Etiquetas"
+
+    def __str__(self):
+        return str(self.name)

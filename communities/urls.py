@@ -5,6 +5,7 @@ from .views import (
     CommunityMemberViewSet,
     JoinCommunityView,
     CommunityFeedView,
+    TagSuggestionView,
 )
 
 # ruta del view set
@@ -37,5 +38,10 @@ urlpatterns = [
         "communities/<uuid:community_id>/feed/",
         CommunityFeedView.as_view(),
         name="community-feed",
+    ),
+    path(
+        "communities/tags/suggestions/",
+        TagSuggestionView.as_view(),
+        name="tag-suggestions",
     ),
 ]
