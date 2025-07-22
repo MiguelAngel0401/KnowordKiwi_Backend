@@ -1,37 +1,135 @@
 <!DOCTYPE html>
-<html>
-<head>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Confirma tu cuenta</title>
     <style>
-        body {
-            background-color:rgb(235, 235, 235);
-            border-style: solid;
-            border-color: rgb(0, 0, 0);
-        }
-        .h1 {
-            font-size: 24px;
-            font-weight: bold;
-        }
+      /* Estilos generales del cuerpo del correo */
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4; /* Color de fondo del correo */
+        margin: 0;
+        padding: 0;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        width: 100% !important;
+      }
 
-        .link{
-            border-style: 4px solid;
-            border-color: rgb(0, 0, 0);
-            box-shadown: 3px, 3px, 3px, 3px;
-            
+      /* Estilos del contenedor principal */
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #ffffff; /* Color de fondo del contenedor */
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        border-color: #dddddd; /* Color del borde del contenedor */
+        border-width: 1px;
+        border-style: solid;
+      }
+
+      /* Estilos del encabezado */
+      .header {
+        padding: 30px 40px;
+        background-color: #ffffff; /* Color de fondo del encabezado */
+        text-align: center;
+      }
+
+      /* Estilos del titulo "¡Hola!" */
+      .h1 {
+        font-size: 28px;
+        color: #333333; /* Color del texto del título */
+        margin: 0;
+        font-weight: bold;
+      }
+
+      /* Estilos del cuerpo del mensaje */
+      .content {
+        padding: 20px 40px 40px;
+        color: #555555; /* Color del texto general del mensaje */
+        line-height: 1.6;
+      }
+
+      /* Estilos del botón de confirmación */
+      .link {
+        display: inline-block;
+        background-color: #007bff; /* Color de fondo del botón */
+        color: #ffffff !important; /* Color del texto del botón */
+        text-decoration: none;
+        padding: 15px 25px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 16px;
+        margin: 20px 0;
+      }
+
+      /* Estilos para el pie de página */
+      .footer {
+        padding: 20px 40px;
+        text-align: center;
+        font-size: 12px;
+        color: #999999; /* Color del texto del pie de página */
+        border-top: 1px solid #eeeeee;
+      }
+
+      /* Enlaces dentro del cuerpo del mensaje */
+      a {
+        color: #007bff; /* Color de los enlaces */
+        text-decoration: underline;
+      }
+
+      /* Adaptabilidad para dispositivos móviles */
+      @media only screen and (max-width: 620px) {
+        .container {
+          width: 100% !important;
+          margin: 0;
+          border-radius: 0;
         }
-        
+        .content,
+        .header,
+        .footer {
+          padding-left: 20px !important;
+          padding-right: 20px !important;
+        }
+        .link {
+          width: 100%;
+          box-sizing: border-box;
+          text-align: center;
+        }
+      }
     </style>
-</head>
-<body>
-        <p class="h1">!Hola {{ user.username }}!</p>
-        <p>Gracias por registrarte en KnoWorld. Por favor, haz clic en el siguiente enlace para confirmar su dirección de correo electrónico:</p>
-        <div class="link">
-            <p><a href="{{ confirmation_link }}">Confirmar mi cuenta</a></p>
-        </div>
-        <p>Si usted no puedes hacer clic en el enlace, cópialo y pégelo en su navegador:</p>
-        <p>{{ confirmation_link }}</p>
-        <p>Si usted no se registro en el servicio de KnoWorld, puede ignorar este correo.</p>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1 class="h1">¡Hola {{ user.username }}!</h1>
+      </div>
+      <div class="content">
+        <p>
+          Gracias por registrarte en KnoWorld. Por favor, haz clic en el
+          siguiente botón para confirmar tu dirección de correo electrónico:
+        </p>
+        <p style="text-align: center">
+          <a href="{{ confirmation_link }}" class="link">Confirmar mi cuenta</a>
+        </p>
+        <p>
+          Si no puedes hacer clic en el botón, copia y pega el siguiente enlace
+          en tu navegador:
+        </p>
+        <p><a href="{{ confirmation_link }}">{{ confirmation_link }}</a></p>
+        <br />
+        <p>
+          Si no te registraste en el servicio de KnoWorld, puedes ignorar este
+          correo.
+        </p>
+        <br />
         <p>Le mandamos un cordial saludo.</p>
         <p>Atte: El equipo de desarrollo de KnoWorld</p>
-</body>
+      </div>
+      <div class="footer">
+        <p>© 2025 KnoWorld. Todos los derechos reservados.</p>
+      </div>
+    </div>
+  </body>
 </html>

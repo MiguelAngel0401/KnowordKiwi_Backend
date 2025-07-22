@@ -1,0 +1,235 @@
+openapi: 3.0.3
+info:
+  title: Knoword API
+  version: 1.0.0
+  description: Documentacion de la API de Knoword Kiwi
+paths:
+  /api/check-email/:
+    post:
+      operationId: api_check_email_create
+      description: Verifica si un correo electrónico ya está registrado por OTRO usuario.
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/check-username/:
+    post:
+      operationId: api_check_username_create
+      description: Verifica si un nombre de usuario ya está registrado por OTRO usuario.
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/login/:
+    post:
+      operationId: api_login_create
+      description: Inicia sesión de un usuario.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/logout/:
+    post:
+      operationId: api_logout_create
+      description: Cierra la sesión del usuario eliminando la cookie de refresco.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/me/:
+    get:
+      operationId: api_me_retrieve
+      description: |-
+        Vista para que los usuarios vean y actualicen su perfil.
+        Permite peticiones GET para obtener los datos y PATCH para actualizarlos.
+      tags:
+      - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserUpdate'
+          description: ''
+    put:
+      operationId: api_me_update
+      description: |-
+        Vista para que los usuarios vean y actualicen su perfil.
+        Permite peticiones GET para obtener los datos y PATCH para actualizarlos.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserUpdate'
+          description: ''
+    patch:
+      operationId: api_me_partial_update
+      description: |-
+        Vista para que los usuarios vean y actualicen su perfil.
+        Permite peticiones GET para obtener los datos y PATCH para actualizarlos.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserUpdate'
+          description: ''
+  /api/register/:
+    post:
+      operationId: api_register_create
+      description: Registra un nuevo usuario.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/token/refresh/:
+    post:
+      operationId: api_token_refresh_create
+      description: |-
+        Vista para refrescar el token de acceso utilizando un
+        token de actualización almacenado en cookies.
+        Esta vista asume que el token de actualización se
+        almacena en una cookie llamada "refresh_token".
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/verify-email/{token}/:
+    get:
+      operationId: api_verify_email_retrieve
+      description: Verifica el correo electrónico del usuario utilizando un token.
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+components:
+  schemas:
+    PatchedUserUpdate:
+      type: object
+      description: |-
+        Serializador para actualizar los datos del usuario.
+        Permite editar: username, real_name, bio, email.
+      properties:
+        username:
+          type: string
+          maxLength: 50
+        real_name:
+          type: string
+          maxLength: 100
+        bio:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          writeOnly: true
+      required:
+      - access
+      - refresh
+    UserUpdate:
+      type: object
+      description: |-
+        Serializador para actualizar los datos del usuario.
+        Permite editar: username, real_name, bio, email.
+      properties:
+        username:
+          type: string
+          maxLength: 50
+        real_name:
+          type: string
+          maxLength: 100
+        bio:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+      required:
+      - real_name
+      - username
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
