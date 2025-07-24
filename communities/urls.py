@@ -11,16 +11,23 @@ from .views import (
 # ruta del view set
 
 router = DefaultRouter()
+# Operaciones CRUD para las comunidades
+# Permite listar, crear, actualizar y eliminar comunidades con borrado lógico.
 router.register(r"communities", CommunityViewSet, basename="community")
 
-# ruta de la app de las comunidades y miembros de las mismas
 urlpatterns = [
     path("", include(router.urls)),
+    # Esta ruta permite acceder a los miembros de una comunidad específica.
+    # Tambien permite crear nuevos miembros.
     path(
         "communities/<uuid:community_id>/members/",
         CommunityMemberViewSet.as_view({"get": "list", "post": "create"}),
         name="community-members-created",
     ),
+    # Esta ruta permite acceder a los miembros de una comunidad específica
+    # y realizar operaciones get, put y delete.
+    # Se utiliza el UUID de la comunidad para filtrar los miembros.
+    # Se usa la llave primaria (pk) de la tabla community_members para operaciones específicas.
     path(
         "communities/<uuid:community_id>/members/<uuid:pk>/",
         CommunityMemberViewSet.as_view(
@@ -28,7 +35,9 @@ urlpatterns = [
         ),
         name="community-member-detail",
     ),
-    # ruta para unirse a una comunidad y el feed de la misma
+    # Ruta para unirse a una comunidad específica.
+    # Permite a un usuario autenticado unirse a una comunidad. A diferencia del endpoint anterior,
+    # este endpoint no requiere un ID de miembro específico.
     path(
         "communities/<uuid:community_id>/join/",
         JoinCommunityView.as_view(),

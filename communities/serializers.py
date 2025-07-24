@@ -4,12 +4,45 @@ from .models import Community, CommunityMember, CommunityRole, Tag
 
 
 class TagSerializer(serializers.ModelSerializer):
+    """
+    Serializer para el modelo Tag.
+    Utilizado para representar las etiquetas asociadas a las comunidades.
+    """
+
     class Meta:
+        """
+        Clase Meta para configurar el serializer TagSerializer.
+        """
+
         model = Tag
         fields = ["id", "name"]
 
 
 class CommunitySerializer(serializers.ModelSerializer):
+    """
+    Serializador para el modelo Community, que maneja la serialización y
+    deserialización de instancias de comunidad,
+    incluyendo la gestión de etiquetas.
+
+    Campos:
+    - read_tags (TagSerializer): Representación de solo lectura
+      de las etiquetas relacionadas.
+    - tags (ListField): Lista de solo escritura de nombres de
+      etiquetas para creación y actualización.
+
+    Meta:
+    model: Community
+    fields: Todos los campos del modelo.
+    read_only_fields: id, created_by, created_at, updated_at, deleted_at
+    Métodos:
+
+    - create(validated_data): Crea una instancia de Community y asocia etiquetas por nombre,
+    creando nuevas etiquetas si es necesario.
+    - update(instance, validated_data): Actualiza una instancia de Community
+    y reasigna etiquetas por nombre,
+    creando nuevas etiquetas si es necesario.
+    """
+
     read_tags = TagSerializer(source="tags", many=True, read_only=True)
     tags = serializers.ListField(
         child=serializers.CharField(),
@@ -17,6 +50,10 @@ class CommunitySerializer(serializers.ModelSerializer):
     )
 
     class Meta:
+        """
+        Clase Meta para configurar el serializer CommunitySerializer.
+        """
+
         model = Community
         fields = "__all__"
         read_only_fields = (
@@ -58,23 +95,66 @@ class CommunitySerializer(serializers.ModelSerializer):
         return instance
 
 
-class CommunityRoleSerializer(
-    serializers.ModelSerializer
-):  # Serilizers para los admins
+class CommunityRoleSerializer(serializers.ModelSerializer):
+    """
+    Serializador para el modelo CommunityRole.
+
+    Este serializer se encarga de la serialización y deserialización de los roles
+    dentro de una comunidad, permitiendo representar y validar los datos asociados
+    a los distintos roles que pueden tener los miembros de una comunidad.
+
+    Meta:
+        model: CommunityRole
+        fields: Todos los campos del modelo.
+        read_only_fields: id (el identificador es de solo lectura).
+    """
+
     class Meta:
+        """
+        Clase Meta para configurar el serializer CommunityRoleSerializer.
+        """
+
         model = CommunityRole
         fields = "__all__"
         read_only_fields = ("id",)
 
 
-class CommunityMemberSerializer(
-    serializers.ModelSerializer
-):  # Eso de aca sirve para saber que tipo de usuario son
+class CommunityMemberSerializer(serializers.ModelSerializer):
+    """
+    Serializador para el modelo CommunityMember.
+
+    Este serializer gestiona la serialización y deserialización de los miembros de una comunidad,
+    permitiendo representar y validar los datos asociados a la relación entre usuarios y comunidades,
+    incluyendo el rol que desempeñan dentro de la comunidad.
+
+    Campos:
+    - user: Referencia al usuario miembro de la comunidad (solo escritura).
+    - role: Representación del rol asignado al miembro (solo lectura).
+    - role_id: Identificador del rol a asignar (solo escritura).
+    - community: Comunidad a la que pertenece el miembro.
+    - joined_at: Fecha de ingreso del miembro a la comunidad (solo lectura).
+
+    Métodos:
+    - create(validated_data): Crea una instancia de CommunityMember
+    asignando el rol correspondiente.
+    - update(instance, validated_data): Actualiza la instancia de CommunityMember
+      y su rol si es necesario.
+
+    Meta:
+        model: CommunityMember
+        fields: id, user, community, role, role_id, joined_at
+        read_only_fields: id, joined_at
+    """
+
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     role = CommunityRoleSerializer(read_only=True)
     role_id = serializers.UUIDField(write_only=True)
 
     class Meta:
+        """
+        Clase Meta para configurar el serializer CommunityMemberSerializer.
+        """
+
         model = CommunityMember
         fields = ["id", "user", "community", "role", "role_id", "joined_at"]
         read_only_fields = ("id", "joined_at")
@@ -92,19 +172,14 @@ class CommunityMemberSerializer(
         return super().update(instance, validated_data)
 
 
-class JoinCommunitySerializer(
-    serializers.Serializer
-):  # Esto de aca es para unirse a las comunidades
+class JoinCommunitySerializer(serializers.Serializer):
+    """
+    Serializador para la solicitud de unirse a una comunidad.
+    Este serializador valida que el ID de la comunidad sea correcto
+    y que el usuario no sea ya miembro de la comunidad.
+    """
+
     community_id = serializers.UUIDField()
 
     def validate_community_id(self, value):
         from .models import Community
-
-
-# TagSerializer is now defined above CommunitySerializer
-
-
-class TagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Tag
-        fields = ["id", "name"]
