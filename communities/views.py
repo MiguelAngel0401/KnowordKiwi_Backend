@@ -1,8 +1,10 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from django.db.models import Count
 from django.utils import timezone
 
 from users.authentication import CookieJWTAuthentication
@@ -32,6 +34,23 @@ class CommunityViewSet(viewsets.ModelViewSet):
             {"message": "Comunidad eliminada correctamente"},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+    @action(detail=False, methods=["get"], url_path="my-communities")
+    def my_communities(self, request):
+        """
+        Devuelve las comunidades creadas por el usuario autenticado,
+        incluyendo la cantidad de miembros de cada una.
+        """
+        user_communities = self.queryset.filter(created_by=request.user).annotate(
+            member_count=Count("memberships")
+        )
+        page = self.paginate_queryset(user_communities)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(user_communities, many=True)
+        return Response(serializer.data)
 
 
 class CommunityMemberViewSet(viewsets.ModelViewSet):
@@ -90,6 +109,7 @@ class JoinCommunityView(APIView):
 
         # Asignar rol de miembro por defecto
         # Se asume que existe un rol llamado "Member" en la base de datos.
+        # TODO: Considerar una forma más robusta de obtener el rol por defecto, en lugar de un nombre hardcodeado.
         role = get_object_or_404(CommunityRole, name="Member")
 
         CommunityMember.objects.create(
@@ -134,6 +154,61 @@ class TagSuggestionView(APIView):
         if query:
             tags = Tag.objects.filter(name__icontains=query)[:5]  # Limita sugerencias
         else:
-            tags = Tag.objects.all()[:10]  # O las más populares
+            # Devuelve las 10 etiquetas más usadas en comunidades activas
+            tags = (
+                Tag.objects.filter(communities__deleted_at__isnull=True)
+                .annotate(community_count=Count("communities"))
+                .order_by("-community_count")[:10]
+            )
         serializer = TagSerializer(tags, many=True)
+        return Response(serializer.data)
+
+
+class ExploreCommunitiesView(APIView):
+    """
+    View para explorar comunidades agrupadas por etiqueta.
+    """
+
+    def get(self, request):
+        # Obtenemos todas las etiquetas que tienen al menos una comunidad activa,
+        # precargando eficientemente dichas comunidades.
+        tags_with_communities = (
+            Tag.objects.filter(communities__deleted_at__isnull=True)
+            .prefetch_related("communities")
+            .distinct()
+        )
+
+        data = []
+        for tag in tags_with_communities:
+            active_communities = [
+                c for c in tag.communities.all() if c.deleted_at is None
+            ]
+            if active_communities:
+                serialized = CommunitySerializer(active_communities, many=True)
+                data.append({"tag": tag.name, "communities": serialized.data})
+
+        return Response(data)
+
+
+class CommunitiesByTagView(APIView):
+    """
+    View para obtener las comunidades asociadas a una etiqueta (tag) específica.
+    """
+
+    permission_classes = [permissions.AllowAny]  # Accesible públicamente
+
+    def get(self, request, tag_name):
+        """
+        Devuelve una lista de comunidades que tienen la etiqueta especificada.
+        La búsqueda de la etiqueta no distingue entre mayúsculas y minúsculas.
+        """
+        tag = get_object_or_404(Tag, name__iexact=tag_name)
+
+        communities = (
+            tag.communities.filter(deleted_at__isnull=True)
+            .annotate(member_count=Count("memberships"))
+            .order_by("-member_count")
+        )
+
+        serializer = CommunitySerializer(communities, many=True)
         return Response(serializer.data)

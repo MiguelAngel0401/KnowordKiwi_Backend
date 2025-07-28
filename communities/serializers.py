@@ -48,6 +48,7 @@ class CommunitySerializer(serializers.ModelSerializer):
         child=serializers.CharField(),
         write_only=True,
     )
+    member_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         """
@@ -55,7 +56,21 @@ class CommunitySerializer(serializers.ModelSerializer):
         """
 
         model = Community
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "description",
+            "avatar_url",
+            "banner_url",
+            "is_private",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "deleted_at",
+            "tags",
+            "read_tags",
+            "member_count",
+        ]
         read_only_fields = (
             "id",
             "created_by",
@@ -170,16 +185,3 @@ class CommunityMemberSerializer(serializers.ModelSerializer):
         if role_id:
             instance.role = CommunityRole.objects.get(id=role_id)
         return super().update(instance, validated_data)
-
-
-class JoinCommunitySerializer(serializers.Serializer):
-    """
-    Serializador para la solicitud de unirse a una comunidad.
-    Este serializador valida que el ID de la comunidad sea correcto
-    y que el usuario no sea ya miembro de la comunidad.
-    """
-
-    community_id = serializers.UUIDField()
-
-    def validate_community_id(self, value):
-        from .models import Community

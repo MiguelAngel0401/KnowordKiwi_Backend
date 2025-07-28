@@ -1,11 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
+    CommunitiesByTagView,
     CommunityViewSet,
     CommunityMemberViewSet,
     JoinCommunityView,
     CommunityFeedView,
     TagSuggestionView,
+    ExploreCommunitiesView,
 )
 
 # ruta del view set
@@ -48,9 +50,22 @@ urlpatterns = [
         CommunityFeedView.as_view(),
         name="community-feed",
     ),
+    # Ruta para sugerencias de etiquetas en comunidades.
+    # Permite obtener sugerencias de etiquetas basadas en las etiquetas existentes.
+    # Se usa en el apartado de creación y actualización de comunidades.
     path(
         "communities/tags/suggestions/",
         TagSuggestionView.as_view(),
         name="tag-suggestions",
+    ),
+    path(
+        "explore/",
+        ExploreCommunitiesView.as_view(),
+        name="explore-communities",
+    ),
+    path(
+        "communities/tag/<str:tag_name>/",
+        CommunitiesByTagView.as_view(),
+        name="communities-by-tag",
     ),
 ]
