@@ -49,6 +49,9 @@ class CommunitySerializer(serializers.ModelSerializer):
         write_only=True,
     )
     member_count = serializers.IntegerField(read_only=True)
+    is_member = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         """
@@ -70,6 +73,9 @@ class CommunitySerializer(serializers.ModelSerializer):
             "tags",
             "read_tags",
             "member_count",
+            "is_member",
+            "is_owner",
+            "can_edit",
         ]
         read_only_fields = (
             "id",
@@ -78,6 +84,45 @@ class CommunitySerializer(serializers.ModelSerializer):
             "updated_at",
             "deleted_at",
         )
+
+    def get_is_member(self, obj):
+        """Comprueba si el usuario que realiza la solicitud es miembro de la comunidad."""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return CommunityMember.objects.filter(community=obj, user=request.user).exists()
+
+    def get_is_owner(self, obj):
+        """Comprueba si el usuario que realiza la solicitud es el creador de la comunidad."""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.created_by == request.user
+
+    def get_can_edit(self, obj):
+        """
+        Comprueba si el usuario que realiza la solicitud puede editar la comunidad.
+        Un usuario puede editar si es el propietario o si su rol de miembro
+        tiene el permiso 'can_edit'.
+        """
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        # El propietario siempre puede editar.
+        if obj.created_by == request.user:
+            return True
+
+        # Comprobar si es un miembro con permisos de edición.
+        member = (
+            CommunityMember.objects.filter(community=obj, user=request.user)
+            .select_related("role")
+            .first()
+        )
+        if member:
+            return member.role.permissions.get("can_edit", False)
+
+        return False
 
     def create(self, validated_data):
         tags = validated_data.pop("tags", [])
