@@ -3,7 +3,28 @@ from django.db import models
 from users.models import User
 
 
-class Community(models.Model):
+class SoftDeleteManager(models.Manager):
+    """
+    Manager personalizado para modelos con borrado lógico.
+    Filtra automáticamente los objetos que tienen el campo 'deleted_at' establecido.
+    """
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
+class SoftDeleteModel(models.Model):
+    """Modelo abstracto para implementar el borrado lógico."""
+
+    deleted_at = models.DateTimeField(blank=True, null=True)
+    objects = SoftDeleteManager()  # Manager por defecto que filtra borrados.
+    all_objects = models.Manager()  # Manager para acceder a todos los objetos.
+
+    class Meta:
+        abstract = True
+
+
+class Community(SoftDeleteModel):
     """
     Modelo que representa una comunidad en la aplicacion.
     Cada comunidad tiene un nombre, descripcion, avatar, banner, y es privada o publica.
@@ -22,7 +43,6 @@ class Community(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(blank=True, null=True)
     tags = models.ManyToManyField("Tag", related_name="communities", blank=True)
 
     class Meta:

@@ -137,20 +137,21 @@ class CommunitySerializer(serializers.ModelSerializer):
         return community
 
     def update(self, instance, validated_data):
-        tags = validated_data.pop("tags", [])
+        tags_data = validated_data.pop("tags", None)
 
         # Actualizar campos normales
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # Limpiar y reasignar tags
-        instance.tags.clear()
-        for name in tags:
-            tag, _ = Tag.objects.get_or_create(
-                name__iexact=name.strip(), defaults={"name": name.strip()}
-            )
-            instance.tags.add(tag)
+        # Limpiar y reasignar tags solo si se proporcionan en la solicitud
+        if tags_data is not None:
+            instance.tags.clear()
+            for name in tags_data:
+                tag, _ = Tag.objects.get_or_create(
+                    name__iexact=name.strip(), defaults={"name": name.strip()}
+                )
+                instance.tags.add(tag)
 
         return instance
 

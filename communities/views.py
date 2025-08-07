@@ -21,13 +21,13 @@ class CommunityViewSet(viewsets.ModelViewSet):
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = CommunitySerializer
-    queryset = Community.objects.filter(deleted_at__isnull=True)
+    queryset = Community.objects.all()  # Ya filtra los borrados por el manager
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
+        instance = self.get_object()  # get_object usa el queryset por defecto
         instance.deleted_at = timezone.now()
         instance.save()
         return Response(
@@ -41,7 +41,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
         Devuelve las comunidades creadas por el usuario autenticado,
         incluyendo la cantidad de miembros de cada una.
         """
-        user_communities = self.queryset.filter(created_by=request.user).annotate(
+        user_communities = Community.objects.filter(created_by=request.user).annotate(
             member_count=Count("memberships")
         )
         page = self.paginate_queryset(user_communities)
@@ -73,8 +73,10 @@ class CommunityMemberViewSet(viewsets.ModelViewSet):
     serializer_class = CommunityMemberSerializer
 
     def get_queryset(self):
+        # Asegurarse de que la comunidad no esté eliminada antes de listar sus miembros.
         community_id = self.kwargs.get("community_id")
-        return CommunityMember.objects.filter(community_id=community_id)
+        community = get_object_or_404(Community, id=community_id)
+        return CommunityMember.objects.filter(community=community)
 
 
 class JoinCommunityView(APIView):
@@ -95,7 +97,8 @@ class JoinCommunityView(APIView):
         Permite a un usuario autenticado unirse a una comunidad.
         Si el usuario ya es miembro, devuelve un mensaje de error.
         """
-        community = get_object_or_404(Community, id=community_id)
+        # get_object_or_404 usará el manager por defecto, que ya filtra las comunidades eliminadas.
+        community = get_object_or_404(Community.objects, id=community_id)
 
         member_exists = CommunityMember.objects.filter(
             user=request.user, community=community
@@ -146,17 +149,21 @@ class TagSuggestionView(APIView):
 
     def get(self, request):
         """
-        Devuelve sugerencias de etiquetas basadas en la consulta del usuario.
+        Devuelve sugerencias de etiquetas basadas en la consulta de búsqueda del usuario.
+        Busca etiquetas cuyo nombre contenga el texto de la consulta
+        (insensible a mayúsculas/minúsculas).
         Si no hay consulta, devuelve las etiquetas más populares.
         """
+        query = request.query_params.get("q", None)
 
-        query = request.query_params.get("q", "")
         if query:
-            tags = Tag.objects.filter(name__icontains=query)[:5]  # Limita sugerencias
+            # Limita a 10 sugerencias
+            tags = Tag.objects.filter(name__icontains=query)[:10]
         else:
-            # Devuelve las 10 etiquetas más usadas en comunidades activas
-            tags = (
-                Tag.objects.filter(communities__deleted_at__isnull=True)
+            # Si no hay consulta, devuelve las 10 etiquetas más usadas
+            # en comunidades activas
+            tags = (  # El filtro en communities ya es manejado por el manager
+                Tag.objects.filter(communities__in=Community.objects.all())
                 .annotate(community_count=Count("communities"))
                 .order_by("-community_count")[:10]
             )
@@ -172,17 +179,18 @@ class ExploreCommunitiesView(APIView):
     def get(self, request):
         # Obtenemos todas las etiquetas que tienen al menos una comunidad activa,
         # precargando eficientemente dichas comunidades.
+        # Usamos prefetch_related con el manager por defecto de Community para eficiencia.
+        active_communities_qs = Community.objects.prefetch_related("tags")
         tags_with_communities = (
-            Tag.objects.filter(communities__deleted_at__isnull=True)
-            .prefetch_related("communities")
+            Tag.objects.filter(communities__in=active_communities_qs)
             .distinct()
+            .prefetch_related("communities")
         )
 
         data = []
         for tag in tags_with_communities:
-            active_communities = [
-                c for c in tag.communities.all() if c.deleted_at is None
-            ]
+            # El manager ya se encarga de filtrar, no necesitamos la comprobación manual.
+            active_communities = tag.communities.all()
             if active_communities:
                 serialized = CommunitySerializer(active_communities, many=True)
                 data.append({"tag": tag.name, "communities": serialized.data})
@@ -202,10 +210,10 @@ class CommunitiesByTagView(APIView):
         Devuelve una lista de comunidades que tienen la etiqueta especificada.
         La búsqueda de la etiqueta no distingue entre mayúsculas y minúsculas.
         """
-        tag = get_object_or_404(Tag, name__iexact=tag_name)
+        tag = get_object_or_404(Tag.objects, name__iexact=tag_name)
 
-        communities = (
-            tag.communities.filter(deleted_at__isnull=True)
+        communities = (  # El manager por defecto de Community se encarga del filtrado.
+            tag.communities.all()
             .annotate(member_count=Count("memberships"))
             .order_by("-member_count")
         )
