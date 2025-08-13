@@ -23,6 +23,13 @@ class CommunityViewSet(viewsets.ModelViewSet):
     serializer_class = CommunitySerializer
     queryset = Community.objects.all()  # Ya filtra los borrados por el manager
 
+    def get_queryset(self):
+        """
+        Sobrescribe el queryset por defecto para incluir el conteo de miembros
+        en cada comunidad.
+        """
+        return self.queryset.annotate(member_count=Count("memberships"))
+
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 

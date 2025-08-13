@@ -35,8 +35,8 @@ class Community(SoftDeleteModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
-    avatar_url = models.URLField(blank=True, null=True)
-    banner_url = models.URLField(blank=True, null=True)
+    avatar = models.URLField(blank=True, null=True)
+    banner = models.URLField(blank=True, null=True)
     is_private = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="created_communities"

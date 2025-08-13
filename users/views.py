@@ -316,6 +316,3 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         solo pueda acceder a su propio perfil.
         """
         return self.request.user
-
-
-# drf django_spectacular

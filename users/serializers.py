@@ -210,7 +210,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         """
 
         model = User
-        fields = ("username", "real_name", "bio", "email")
+        fields = ("username", "real_name", "bio", "email", "avatar_url")
 
     def validate_username(self, value):
         """Valida que el nuevo username no esté en uso por otro usuario."""
