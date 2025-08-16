@@ -10,6 +10,9 @@ class SoftDeleteManager(models.Manager):
     """
 
     def get_queryset(self):
+        """
+        Retorna un queryset que excluye los objetos marcados como borrados lógicamente.
+        """
         return super().get_queryset().filter(deleted_at__isnull=True)
 
 
@@ -21,6 +24,10 @@ class SoftDeleteModel(models.Model):
     all_objects = models.Manager()  # Manager para acceder a todos los objetos.
 
     class Meta:
+        """
+        Clase Meta para configurar el modelo SoftDeleteModel.
+        """
+
         abstract = True
 
 
@@ -50,7 +57,7 @@ class Community(SoftDeleteModel):
         Clase Meta para configurar el modelo Community.
         """
 
-        db_table = "communities"
+        db_table = '"communities"."communities"'
         verbose_name = "Comunidad"
         verbose_name_plural = "Comunidades"
 
@@ -68,12 +75,38 @@ class CommunityRole(models.Model):
     name = models.CharField(max_length=50, unique=True)
     permissions = models.JSONField(default=dict)
 
+    @classmethod
+    def get_default_role(cls):
+        """
+        Retorna el rol por defecto para nuevos miembros.
+        Si no existe, lo crea.
+
+        Returns:
+            CommunityRole: La instancia del rol por defecto.
+        """
+        role, _ = cls.objects.get_or_create(
+            name="Member",
+            defaults={
+                "permissions": {
+                    "can_post": True,
+                    "can_comment": True,
+                    "can_react": True,
+                    "can_vote": True,
+                    "can_play_games": True,
+                    "can_report_content": True,
+                    "can_edit_own_posts": True,
+                    "can_edit_own_comments": True,
+                }
+            },
+        )
+        return role
+
     class Meta:
         """
         Clase Meta para configurar el modelo CommunityRole.
         """
 
-        db_table = "community_roles"
+        db_table = '"communities"."community_roles"'
         verbose_name = "Rol de Comunidad"
         verbose_name_plural = "Roles de Comunidades"
 
@@ -105,7 +138,7 @@ class CommunityMember(models.Model):
         Esta clase define la tabla, las restricciones de unicidad y los indices.
         """
 
-        db_table = "community_members"
+        db_table = '"communities"."community_members"'
         unique_together = ("community", "user")
         indexes = [
             models.Index(fields=["community", "user"]),
@@ -131,7 +164,7 @@ class Tag(models.Model):
         Clase Meta para configurar el modelo Tag.
         """
 
-        db_table = "tags"
+        db_table = '"communities"."tags"'
         verbose_name = "Etiqueta"
         verbose_name_plural = "Etiquetas"
 

@@ -7,7 +7,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--total", type=int, default=10, help="Number of users to create"
+            "--total", type=int, default=5, help="Number of users to create"
         )
 
     def handle(self, *args, **kwargs):

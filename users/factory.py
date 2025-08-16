@@ -12,7 +12,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     email = factory.LazyAttribute(lambda _: fake.unique.email())
     username = factory.LazyAttribute(lambda _: fake.unique.user_name())
     real_name = factory.LazyAttribute(lambda _: fake.name())
-    avatar_url = factory.LazyAttribute(lambda _: fake.image_url())
+    avatar = factory.LazyAttribute(lambda _: fake.image_url())
     bio = factory.LazyAttribute(lambda _: fake.sentence(nb_words=10))
     is_email_verified = factory.LazyAttribute(
         lambda _: fake.boolean(chance_of_getting_true=75)

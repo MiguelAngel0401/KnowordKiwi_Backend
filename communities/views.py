@@ -118,9 +118,7 @@ class JoinCommunityView(APIView):
             )
 
         # Asignar rol de miembro por defecto
-        # Se asume que existe un rol llamado "Member" en la base de datos.
-        # TODO: Considerar una forma más robusta de obtener el rol por defecto, en lugar de un nombre hardcodeado.
-        role = get_object_or_404(CommunityRole, name="Member")
+        role = CommunityRole.get_default_role()
 
         CommunityMember.objects.create(
             user=request.user, community=community, role=role
