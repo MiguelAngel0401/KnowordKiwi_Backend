@@ -8,14 +8,23 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
 User = get_user_model()
 
 
-# Serializdor de Login
 class UserLoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(
+        error_messages={
+            "required": "El correo electrónico es obligatorio.",
+        }
+    )
+    password = serializers.CharField(
+        write_only=True,
+        error_messages={
+            "required": "La contraseña es obligatoria.",
+        },
+    )
 
     def validate(self, data):
         email = data.get("email")
@@ -28,18 +37,19 @@ class UserLoginSerializer(serializers.Serializer):
 
             if not user:
                 raise serializers.ValidationError(
-                    "Credenciales inválidas, intenta de nuevo."
+                    "Por favor verifica que el correo y la contraseña sean correctos."
                 )
             if not user.is_active:
-                raise serializers.ValidationError("Esta cuenta está desactivada.")
-        else:
-            raise serializers.ValidationError("Se requiere correo y contraseña.")
+                raise serializers.ValidationError(
+                    "Parece que no puedes iniciar sesión con esta cuenta. Por favor, contacta al soporte."
+                )
+            if not user.is_email_verified:
+                raise serializers.ValidationError(
+                    "Por favor verifica tu cuenta antes de iniciar sesión."
+                )
 
         data["user"] = user
         return data
-
-
-# Serializador de Registro
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -63,23 +73,44 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         serializers.ValidationError: Si el correo electrónico o el nombre de usuario ya existen.
     """
 
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        error_messages={
+            "min_length": "La contraseña debe tener un mínimo de 8 caracteres."
+        },
+    )
+
+    # Definimos los campos explícitamente para controlar el mensaje de error 'unique'.
+    email = serializers.EmailField(
+        required=True,
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message="Este correo electrónico ya está registrado.",
+            )
+        ],
+    )
+    username = serializers.CharField(
+        required=True,
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(), message="Este nombre de usuario ya existe."
+            )
+        ],
+    )
 
     class Meta:
+        """
+        Meta clase para configurar el serializador.
+        Campos:
+            model (Model): Modelo de usuario.
+            fields (tuple): Campos incluidos en el serializador.
+        """
+
         model = User
         fields = ("email", "username", "real_name", "password", "avatar_url", "bio")
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError(
-                "Este correo electrónico ya está registrado."
-            )
-        return value
-
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Este nombre de usuario ya existe.")
-        return value
+        # extra_kwargs ya no es necesario para 'unique' porque los campos se definen arriba.
 
     def create(self, validated_data):
         email = validated_data.pop("email")
@@ -104,35 +135,46 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.email_verification_expires_at = timezone.now() + timedelta(hours=24)
         user.save()
 
-        # Enviar correo
-        subject = "Confirma tu cuenta de KnoWord"
-        confirmation_link = f"http://localhost:3000/confirm-account?token={user.email_verification_token}/"
-
-        html_message = render_to_string(
-            "emails/confirmation_email.html",
-            {"user": user, "confirmation_link": confirmation_link},
-        )
-        plain_message = strip_tags(html_message)
-
-        try:
-            send_mail(
-                subject,
-                plain_message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            print("Correo enviado a", user.email)
-        except Exception as e:
-            print("Error al enviar el correo:", e)
+        _send_verification_email(user)
 
         return user
 
 
-# Serializador de Usuario
+def _send_verification_email(user):
+    """Función auxiliar para enviar el correo de verificación."""
+    subject = "Confirma tu cuenta de KnoWord"
+    confirmation_link = (
+        f"http://localhost:3000/confirm-account?token={user.email_verification_token}"
+    )
+
+    html_message = render_to_string(
+        "emails/confirmation_email.html",
+        {"user": user, "confirmation_link": confirmation_link},
+    )
+    plain_message = strip_tags(html_message)
+
+    send_mail(
+        subject,
+        plain_message,
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        html_message=html_message,
+        fail_silently=False,
+    )
+
+
 class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializador para representar los datos de un usuario.
+    Se devuelve una instancia del modelo User al iniciar sesion.
+    """
+
     class Meta:
+        """
+        Meta clase para configurar el serializador.
+        Se excluyen varios campos innecesarios para la representación.
+        """
+
         model = User
         exclude = (
             "password",
@@ -140,4 +182,74 @@ class UserSerializer(serializers.ModelSerializer):
             "email_verification_expires_at",
             "password_reset_token",
             "password_reset_expires_at",
+            "is_superuser",
+            "is_staff",
+            "last_login",
+            "is_email_verified",
+            "created_at",
+            "updated_at",
+            "deleted_at",
+            "user_permissions",
         )
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializador para actualizar los datos del usuario.
+    Permite editar: username, real_name, bio, email.
+    """
+
+    email = serializers.EmailField(required=False)
+
+    class Meta:
+        """
+        Meta clase para configurar el serializador.
+        Campos:
+            model (Model): Modelo de usuario.
+            fields (tuple): Campos incluidos en el serializador.
+        """
+
+        model = User
+        fields = ("username", "real_name", "bio", "email", "avatar_url")
+
+    def validate_username(self, value):
+        """Valida que el nuevo username no esté en uso por otro usuario."""
+        # self.instance es el objeto de usuario que se está actualizando
+        if User.objects.filter(username=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError("Este nombre de usuario ya existe.")
+        return value
+
+    def validate_email(self, value):
+        """Valida que el nuevo email no esté en uso por otro usuario."""
+        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError(
+                "Este correo electrónico ya está registrado."
+            )
+        return value
+
+    def update(self, instance, validated_data):
+        """
+        Actualiza la instancia del usuario. Si el email cambia,
+        se inicia el proceso de re-verificación.
+        """
+        new_email = validated_data.get("email")
+
+        # Lógica de re-verificación de email
+        if new_email and new_email.lower() != instance.email.lower():
+            instance.is_email_verified = False
+            instance.email_verification_token = str(uuid.uuid4())
+            instance.email_verification_expires_at = timezone.now() + timedelta(
+                hours=24
+            )
+            # Guardamos el nuevo email temporalmente para enviar el correo
+            instance.email = new_email
+            try:
+                _send_verification_email(instance)
+            except Exception as e:
+                # Si el correo falla, no actualizamos el email para evitar un estado inconsistente
+                raise serializers.ValidationError(
+                    f"No se pudo enviar el correo de verificación al nuevo email. Error: {e}"
+                )
+
+        # Llama al método update original para guardar los demás campos
+        return super().update(instance, validated_data)
